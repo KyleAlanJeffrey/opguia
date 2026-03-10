@@ -19,9 +19,7 @@ pip install opguia
 opguia
 ```
 
-Opens in your browser. Enter an OPC UA endpoint or let it scan for local servers.
-
-For a native desktop window, install with `pip install opguia[native]`.
+Opens a native desktop window. Enter an OPC UA endpoint or let it scan for local servers.
 
 ## Features
 
@@ -32,7 +30,7 @@ For a native desktop window, install with `pip install opguia[native]`.
 - Click to write writable variables
 - Collapsible detail view for full node attributes
 - Custom struct types resolved to their real names
-- Optional native desktop window via pywebview
+- Native desktop window via pywebview
 
 ## Development
 

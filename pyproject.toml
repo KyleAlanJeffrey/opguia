@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Dead simple OPC UA browser"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 authors = [
     { name = "Kyle" },
 ]
@@ -25,10 +25,8 @@ classifiers = [
 dependencies = [
     "asyncua>=1.0.0",
     "nicegui>=1.4.0",
+    "pywebview>=4.0",
 ]
-
-[project.optional-dependencies]
-native = ["pywebview>=4.0"]
 
 [project.scripts]
 opguia = "opguia.app:run"
