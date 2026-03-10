@@ -8,6 +8,7 @@ from opguia.pages import connection, browse
 from opguia.native import configure_native
 
 _STATIC = Path(__file__).parent / "static"
+_FAVICON = (_STATIC / "favicon.svg").read_text()
 
 
 def run():
@@ -19,7 +20,7 @@ def run():
     browse.register(client, settings)
     ui.run(
         title="OPGuia — OPC UA Browser",
-        favicon="/static/favicon.svg",
+        favicon=_FAVICON,
         port=8080,
         reload=False,
         storage_secret="opguia",
