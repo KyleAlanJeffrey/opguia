@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opguia"
+dynamic = ["version"]
+description = "Dead simple OPC UA browser"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Kyle" },
+]
+keywords = ["opcua", "opc-ua", "browser", "scada", "plc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
+]
+dependencies = [
+    "asyncua>=1.0.0",
+    "nicegui>=1.4.0",
+    "pywebview>=4.0",
+]
+
+[project.scripts]
+opguia = "opguia.app:run"
+
+[project.urls]
+Homepage = "https://github.com/kyle/opguia"
+
+[tool.hatch.version]
+path = "opguia/__init__.py"

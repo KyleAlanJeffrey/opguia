@@ -177,7 +177,9 @@ class OpcuaClient:
                     entry["writable"] = bool(al_dv.Value.Value & 0x02)
 
                 # Variables with complex values may have children
-                if val_dv.Value and val_dv.Value.VariantType == ua.VariantType.ExtensionObject:
+                if entry["data_type"] == "ExtensionObject":
+                    entry["has_children"] = True
+                elif val_dv.Value and val_dv.Value.VariantType == ua.VariantType.ExtensionObject:
                     entry["has_children"] = True
 
         return [e for e in entries if e is not None]
@@ -223,7 +225,9 @@ class OpcuaClient:
             is_complex = False
             try:
                 dt = await node.read_data_type_as_variant_type()
-                details["data_type"] = str(dt)
+                details["data_type"] = dt.name  # e.g. "ExtensionObject", "Float"
+                if dt == ua.VariantType.ExtensionObject:
+                    is_complex = True
             except Exception:
                 try:
                     dt_node = await node.read_data_type()
@@ -237,7 +241,7 @@ class OpcuaClient:
                 except Exception:
                     details["data_type"] = "—"
 
-            if is_complex or details.get("data_type") in ("ExtensionObject",):
+            if is_complex:
                 details["value"] = None
                 details["variant_type"] = "ExtensionObject"
                 details["status_code"] = "—"
