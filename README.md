@@ -7,8 +7,10 @@
 
 Dead simple OPC UA browser built with Python.
 
-![alt text](assets/image-1.png)
-![alt text](assets/image-2.png)
+<p>
+  <img src="assets/image-1.png" width="49%">
+  <img src="assets/image.png" width="49%">
+</p>
 ## Install
 
 ```bash
