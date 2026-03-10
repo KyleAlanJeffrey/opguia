@@ -49,14 +49,36 @@ def create_detail_panel(client: OpcuaClient, on_set_root=None):
                     ui.label("Value:").classes("text-xs text-gray-500 shrink-0")
                     if is_error:
                         ui.label(val_str).classes("text-sm font-mono text-red-400 break-all")
-                    elif is_complex:
+                    elif is_complex and val is None:
                         ui.label("(complex — browse children)").classes(
                             "text-sm font-mono text-gray-400 italic"
+                        )
+                    elif is_complex and val is not None:
+                        ui.label(info.get("data_type", "Struct")).classes(
+                            "text-sm font-mono text-blue-300"
                         )
                     else:
                         ui.label(val_str).classes("text-sm font-mono text-green-300 break-all")
                     if info.get("data_type"):
                         ui.label(info["data_type"]).classes("text-xs text-gray-500 ml-auto shrink-0")
+
+                # Show decoded struct fields
+                if is_complex and val is not None and not isinstance(val, (bytes, str)):
+                    try:
+                        fields = vars(val)
+                    except TypeError:
+                        fields = {}
+                    if fields:
+                        with ui.column().classes("w-full gap-0 ml-4 border-l border-gray-700 pl-3"):
+                            for fname, fval in fields.items():
+                                if fname.startswith("_"):
+                                    continue
+                                fval_str = str(fval)
+                                if len(fval_str) > 80:
+                                    fval_str = fval_str[:80] + ".."
+                                with ui.row().classes("items-start gap-2 w-full"):
+                                    ui.label(fname).classes("text-xs text-gray-400 shrink-0")
+                                    ui.label(fval_str).classes("text-xs font-mono text-gray-200 break-all")
 
                 # Write form (only for writable, non-error, non-complex variables)
                 if can_write:

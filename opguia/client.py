@@ -211,9 +211,14 @@ class OpcuaClient:
 
                     if ns == 0 and isinstance(dt_id, int) and dt_id in _BASE_DATA_TYPES:
                         entry["data_type"] = _BASE_DATA_TYPES[dt_id]
-                        # Base ExtensionObject (id=22) is always complex/expandable
+                        # Base ExtensionObject (id=22) — try to refine from decoded value
                         if dt_id == 22:
                             entry["has_children"] = True
+                            val = entry["value"]
+                            if val is not None and val != "?":
+                                real = type(val).__name__
+                                if real not in ("ExtensionObject", "NoneType", "bytes"):
+                                    entry["data_type"] = real
                     else:
                         # Custom type — queue for batch name resolution
                         needs_type_resolve.append((idx, dt_nodeid))
@@ -285,27 +290,31 @@ class OpcuaClient:
             # Complex types (structs/ExtensionObjects) throw BadNotSupported on value read.
             info["data_type"], info["is_complex"] = await self._resolve_detail_data_type(node)
 
-            if info["is_complex"]:
-                # Don't attempt value read — it will fail with BadNotSupported
-                info["value"] = None
-                info["variant_type"] = "ExtensionObject"
+            # Always try to read the value — even complex types may be decodable
+            try:
+                dv = await node.read_data_value()
+                val = dv.Value.Value if dv.Value else None
+                info["value"] = val
+                info["variant_type"] = dv.Value.VariantType.name if dv.Value else "—"
+                info["status_code"] = str(dv.StatusCode)
+                info["source_timestamp"] = format_timestamp(dv.SourceTimestamp)
+                info["server_timestamp"] = format_timestamp(dv.ServerTimestamp)
+                # Refine type name from decoded value
+                if val is not None and info["is_complex"]:
+                    real = type(val).__name__
+                    if real not in ("ExtensionObject", "NoneType", "bytes"):
+                        info["data_type"] = real
+                        info["variant_type"] = real
+            except Exception as e:
+                if info["is_complex"]:
+                    info["value"] = None
+                    info["variant_type"] = info["data_type"]
+                else:
+                    info["value"] = f"Error: {e}"
+                    info["variant_type"] = "—"
                 info["status_code"] = "—"
                 info["source_timestamp"] = "—"
                 info["server_timestamp"] = "—"
-            else:
-                try:
-                    dv = await node.read_data_value()
-                    info["value"] = dv.Value.Value if dv.Value else None
-                    info["variant_type"] = dv.Value.VariantType.name if dv.Value else "—"
-                    info["status_code"] = str(dv.StatusCode)
-                    info["source_timestamp"] = format_timestamp(dv.SourceTimestamp)
-                    info["server_timestamp"] = format_timestamp(dv.ServerTimestamp)
-                except Exception as e:
-                    info["value"] = f"Error: {e}"
-                    info["variant_type"] = "—"
-                    info["status_code"] = "—"
-                    info["source_timestamp"] = "—"
-                    info["server_timestamp"] = "—"
 
             # Access levels
             try:

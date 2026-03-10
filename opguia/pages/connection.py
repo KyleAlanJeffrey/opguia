@@ -46,6 +46,8 @@ def register(client: OpcuaClient):
                 scan_list = ui.column().classes("w-full gap-1 mt-2")
 
             async def run_scan():
+                scan_list.clear()
+                scan_spinner.visible = True
                 servers = await scan_servers()
                 scan_spinner.visible = False
                 with scan_list:
@@ -65,6 +67,7 @@ def register(client: OpcuaClient):
                             row.on("click", pick)
 
             asyncio.create_task(run_scan())
+            ui.timer(5.0, run_scan)
 
             # Show existing connection if already connected
             if client.connected:
