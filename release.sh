@@ -13,7 +13,7 @@ echo "==> Cleaning old builds"
 rm -rf dist/ build/ *.egg-info
 
 echo "==> Building"
-python -m build
+python3 -m build
 
 echo "==> Committing"
 git add opguia/__init__.py
