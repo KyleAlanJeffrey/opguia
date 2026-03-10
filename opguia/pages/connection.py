@@ -16,7 +16,11 @@ def register(client: OpcuaClient, settings: Settings):
     async def connection_page():
         ui.dark_mode().enable()
         with ui.column().classes("w-full items-center justify-center min-h-screen gap-4"):
-            ui.label("OPGuia").classes("text-3xl font-bold")
+            with ui.row().classes("items-center gap-3"):
+                ui.image("/static/favicon.svg").classes("w-10 h-10")
+                with ui.column().classes("gap-0"):
+                    ui.label("OPGuia").classes("text-3xl font-bold")
+                    ui.label("OPC UA Browser").classes("text-xs text-gray-400 -mt-1")
 
             # Manual endpoint input
             with ui.card().classes("w-96 p-4"):

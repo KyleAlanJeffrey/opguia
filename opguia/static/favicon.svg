@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f1f33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <!-- Network/node circles -->
+  <circle cx="64" cy="44" r="10" fill="url(#accent)" opacity="0.9"/>
+  <circle cx="38" cy="80" r="8" fill="url(#accent)" opacity="0.7"/>
+  <circle cx="90" cy="80" r="8" fill="url(#accent)" opacity="0.7"/>
+  <!-- Connection lines -->
+  <line x1="64" y1="54" x2="38" y2="72" stroke="#60a5fa" stroke-width="2.5" opacity="0.5"/>
+  <line x1="64" y1="54" x2="90" y2="72" stroke="#60a5fa" stroke-width="2.5" opacity="0.5"/>
+  <line x1="38" y1="80" x2="90" y2="80" stroke="#60a5fa" stroke-width="2" opacity="0.3"/>
+  <!-- Small dots on connections -->
+  <circle cx="51" cy="63" r="3" fill="#93c5fd" opacity="0.6"/>
+  <circle cx="77" cy="63" r="3" fill="#93c5fd" opacity="0.6"/>
+  <!-- Center highlight -->
+  <circle cx="64" cy="44" r="5" fill="white" opacity="0.3"/>
+</svg>

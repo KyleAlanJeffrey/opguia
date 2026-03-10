@@ -60,10 +60,19 @@ class OpcuaClient:
 
     # ── Connection ──
 
-    async def connect(self, endpoint: str) -> None:
+    async def connect(self, endpoint: str, timeout: float = 5.0) -> None:
         self.endpoint = endpoint
         self.client = Client(url=endpoint)
-        await self.client.connect()
+        try:
+            await asyncio.wait_for(self.client.connect(), timeout=timeout)
+        except (asyncio.TimeoutError, TimeoutError):
+            self.client = None
+            self.endpoint = ""
+            raise ConnectionError(f"Connection timed out after {timeout}s")
+        except Exception:
+            self.client = None
+            self.endpoint = ""
+            raise
         # Read server metadata from the first endpoint descriptor
         try:
             endpoints = await self.client.get_endpoints()

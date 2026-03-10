@@ -43,7 +43,9 @@ def register(client: OpcuaClient, settings: Settings):
         with ui.row().classes(
             "w-full items-center justify-between px-4 bg-gray-900 border-b border-gray-700 shrink-0"
         ).style("height:40px; min-height:40px"):
-            ui.label("OPC UA Browser").classes("text-sm font-bold")
+            with ui.row().classes("items-center gap-2"):
+                ui.image("/static/favicon.svg").classes("w-5 h-5")
+                ui.label("OPGuia").classes("text-sm font-bold")
             with ui.row().classes("items-center gap-3"):
                 profile = settings.active_profile
                 profile_name = profile["name"] if profile else client.server_name
@@ -85,7 +87,7 @@ def register(client: OpcuaClient, settings: Settings):
                     ).props("dense size=sm color=orange").classes("text-xs")
 
                     def on_write_toggle(e):
-                        settings.allow_writes = e.value
+                        settings.allow_writes = e.args
 
                     write_switch.on("update:model-value", on_write_toggle)
 
