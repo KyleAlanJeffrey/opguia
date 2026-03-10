@@ -50,14 +50,14 @@ def create_detail_panel(
                     fav_icon = "star" if is_fav else "star_border"
                     fav_color = "text-yellow-500" if is_fav else "text-gray-500"
 
-                    def toggle_fav(nid=node_id, name=info["display_name"]):
+                    async def toggle_fav(nid=node_id, name=info["display_name"]):
                         if settings.is_favorite(nid):
                             settings.remove_favorite(nid)
                         else:
                             settings.add_favorite(name, nid)
                         if on_favorite_toggle:
                             on_favorite_toggle()
-                        asyncio.ensure_future(show_details(nid))
+                        await show_details(nid)
 
                     ui.button(icon=fav_icon, on_click=toggle_fav).props(
                         "flat dense round size=sm"

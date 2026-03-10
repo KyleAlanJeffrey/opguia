@@ -119,8 +119,8 @@ def register(client: OpcuaClient, settings: Settings):
                                     "flat dense round size=xs"
                                 ).classes("text-gray-600 shrink-0").style("opacity:0.5")
 
-                            def open_watch(nid=item["node_id"]):
-                                asyncio.ensure_future(show_detail_dialog(nid))
+                            async def open_watch(nid=item["node_id"]):
+                                await show_detail_dialog(nid)
                             wrow.on("click", open_watch)
 
                 render_watched_sidebar()
@@ -202,25 +202,27 @@ def register(client: OpcuaClient, settings: Settings):
         asyncio.create_task(update_latency())
         asyncio.create_task(update_values())
 
-        # Detail dialog — opens when a node is clicked in the tree
-        async def show_detail_dialog(node_id: str):
-            with ui.dialog().classes("w-full max-w-lg") as dlg, ui.card().classes("w-full p-4"):
-                _container, show_details = create_detail_panel(
+        # Pre-create detail dialog (avoids slot context issues on Windows)
+        with ui.dialog().classes("w-full max-w-lg") as detail_dlg:
+            with ui.card().classes("w-full p-4"):
+                _detail_ct, show_details = create_detail_panel(
                     client,
-                    on_set_root=lambda nid, name: _set_root_close(dlg, nid, name),
+                    on_set_root=lambda nid, name: _set_root_close(nid, name),
                     writes_enabled=lambda: settings.allow_writes,
                     on_favorite_toggle=lambda: _on_watch_changed(),
                     settings=settings,
                 )
-            dlg.open()
+
+        async def show_detail_dialog(node_id: str):
+            detail_dlg.open()
             await show_details(node_id)
 
         def _on_watch_changed():
             render_watched_sidebar()
             render_watch()
 
-        async def _set_root_close(dlg, nid, name):
-            dlg.close()
+        async def _set_root_close(nid, name):
+            detail_dlg.close()
             await set_root(nid, name)
 
         # Initial tree load
