@@ -1,4 +1,15 @@
-"""Browse page — header, sidebar, search, tree, status bar."""
+"""Browse page — main screen after connecting.
+
+Layout (all flexbox, no calc):
+  ┌─────────────────────────────────┐
+  │ Top bar (40px, shrink-0)        │
+  ├────────┬────────────────────────┤
+  │Sidebar │ Search bar (32px)      │  ← middle row (flex:1)
+  │(200px) │ Tree (flex:1 scroll)   │
+  ├────────┴────────────────────────┤
+  │ Bottom bar (24px, shrink-0)     │
+  └─────────────────────────────────┘
+"""
 
 import asyncio
 from nicegui import ui
@@ -15,13 +26,13 @@ def register(client: OpcuaClient):
             ui.navigate.to("/")
             return
 
-        # Kill default NiceGUI page padding, make body a full-height flex column
+        # Override NiceGUI defaults — full-height flex column, no padding
         ui.query("body").style("margin:0; overflow:hidden")
         ui.query(".nicegui-content").classes("w-full h-screen").style(
             "display:flex; flex-direction:column; padding:0; gap:0"
         )
 
-        # ── Top bar (fixed) ──
+        # ── Top bar ──
         with ui.row().classes(
             "w-full items-center justify-between px-4 bg-gray-900 border-b border-gray-700 shrink-0"
         ).style("height:40px; min-height:40px"):
@@ -31,11 +42,10 @@ def register(client: OpcuaClient):
                     ui.label(f"Server: {client.server_name}").classes("text-xs text-gray-300")
                 ui.badge("Connected", color="green").props("rounded").classes("text-xs")
 
-        # ── Middle (flex:1, fills between top and bottom bars) ──
-        with ui.row().classes("w-full no-wrap overflow-hidden").style(
-            "flex:1; min-height:0"
-        ):
-            # Sidebar (fixed 200px)
+        # ── Middle: sidebar + main content ──
+        with ui.row().classes("w-full no-wrap overflow-hidden").style("flex:1; min-height:0"):
+
+            # Sidebar (fixed width)
             with ui.column().classes(
                 "border-r border-gray-700 bg-gray-900/50 gap-0 h-full shrink-0 overflow-hidden"
             ).style("width:200px; max-width:200px"):
@@ -59,13 +69,14 @@ def register(client: OpcuaClient):
                 async def do_disconnect():
                     await client.disconnect()
                     ui.navigate.to("/")
+
                 ui.button(
                     "Disconnect", icon="power_settings_new", on_click=do_disconnect
                 ).props("flat dense size=sm color=red").classes("mx-2")
 
-            # Main column (fills rest, flex column)
+            # Main content area (fills remaining width)
             with ui.column().classes("h-full gap-0 overflow-hidden min-w-0").style("flex:1"):
-                # Search bar (fixed)
+                # Search bar (fixed height)
                 with ui.row().classes(
                     "w-full items-center px-3 border-b border-gray-700 shrink-0 gap-1"
                 ).style("height:32px; min-height:32px"):
@@ -74,13 +85,13 @@ def register(client: OpcuaClient):
                         "dense borderless"
                     ).classes("flex-grow").style("font-size:12px")
 
-                # Tree (fills remaining height)
+                # Tree (scrollable, fills remaining height)
                 with ui.scroll_area().classes("w-full").style("flex:1; min-height:0"):
                     tree_container, rebuild_tree, set_root = create_tree_view(
                         client, on_select_node=lambda nid: show_detail_dialog(nid),
                     )
 
-        # ── Bottom bar (fixed) ──
+        # ── Bottom bar ──
         with ui.row().classes(
             "w-full items-center gap-6 px-4 bg-gray-900 border-t border-gray-700 shrink-0"
         ).style("height:24px; min-height:24px"):
@@ -88,19 +99,25 @@ def register(client: OpcuaClient):
             ui.label(f"Security: {client.security_policy}").classes("text-xs text-gray-500")
             latency_label = ui.label("Latency: ...").classes("text-xs text-gray-500")
 
-        # Search
-        search_input.on("keydown.enter", lambda: rebuild_tree(filter_query=search_input.value.strip().lower()))
+        # ── Event handlers ──
 
-        # Latency
+        # Search on Enter key
+        search_input.on(
+            "keydown.enter",
+            lambda: rebuild_tree(filter_query=search_input.value.strip().lower()),
+        )
+
+        # Latency polling (every 5s)
         async def update_latency():
             while client.connected:
                 ms = await client.measure_latency()
                 if ms is not None:
                     latency_label.text = f"Latency: {ms} ms"
                 await asyncio.sleep(5)
+
         asyncio.create_task(update_latency())
 
-        # Detail dialog
+        # Detail dialog — opens when a node is clicked in the tree
         async def show_detail_dialog(node_id: str):
             with ui.dialog().classes("w-full max-w-lg") as dlg, ui.card().classes("w-full p-4"):
                 _container, show_details = create_detail_panel(
@@ -113,4 +130,5 @@ def register(client: OpcuaClient):
             dlg.close()
             await set_root(nid, name)
 
+        # Initial tree load
         await rebuild_tree()

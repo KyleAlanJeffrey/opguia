@@ -1,9 +1,13 @@
-"""Shared helpers — type conversion, formatting, constants."""
+"""Shared helpers — type conversion, formatting, constants.
+
+These are used by both client.py (OPC UA operations) and
+UI components (display formatting).
+"""
 
 from asyncua import ua
 from datetime import datetime
 
-
+# Human-readable names for OPC UA node classes
 NODE_CLASS_NAMES = {
     ua.NodeClass.Object: "Object",
     ua.NodeClass.Variable: "Variable",
@@ -15,6 +19,7 @@ NODE_CLASS_NAMES = {
     ua.NodeClass.View: "View",
 }
 
+# OPC UA AccessLevel bit flags
 ACCESS_LEVEL_BITS = {
     0x01: "Read",
     0x02: "Write",
@@ -27,11 +32,13 @@ ACCESS_LEVEL_BITS = {
 
 
 def access_level_str(level: int) -> str:
+    """Convert an AccessLevel bitmask to a comma-separated string."""
     parts = [name for bit, name in ACCESS_LEVEL_BITS.items() if level & bit]
     return ", ".join(parts) if parts else "None"
 
 
 def format_timestamp(ts) -> str:
+    """Format an OPC UA timestamp for display."""
     if ts is None:
         return "—"
     if isinstance(ts, datetime):
@@ -40,7 +47,11 @@ def format_timestamp(ts) -> str:
 
 
 def convert_value(raw: str, vtype: ua.VariantType):
-    """Convert a string input to the appropriate Python type for the given VariantType."""
+    """Convert a string input to the correct Python type for writing.
+
+    Used when writing values — the UI gives us a string, and we need
+    to convert it to match the variable's VariantType.
+    """
     if vtype in (ua.VariantType.Float, ua.VariantType.Double):
         return float(raw)
     if vtype in (

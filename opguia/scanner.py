@@ -1,13 +1,20 @@
-"""OPC UA server discovery — scan common ports for active servers."""
+"""OPC UA server discovery — scan common ports for active servers.
+
+Probes localhost (and optionally other hosts) on standard OPC UA ports
+using parallel async connections. Returns a list of reachable servers
+with their URL, application name, and port.
+"""
 
 import asyncio
 from asyncua import Client
 
+# Standard OPC UA port is 4840. Others are common vendor defaults.
 SCAN_PORTS = [4840, 4841, 4842, 4843, 48400, 48401, 48010, 53530]
 SCAN_HOSTS = ["localhost"]
 
 
 async def _probe(host: str, port: int, timeout: float = 1.5) -> dict | None:
+    """Try to connect to a single host:port. Returns server info or None."""
     url = f"opc.tcp://{host}:{port}"
     try:
         c = Client(url=url, timeout=timeout)

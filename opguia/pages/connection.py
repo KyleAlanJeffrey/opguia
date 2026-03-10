@@ -1,4 +1,9 @@
-"""Connection page — endpoint input, server scan, connect."""
+"""Connection page — endpoint input, server scan, connect.
+
+Landing page at "/". Shows an endpoint input field and auto-scans
+for local OPC UA servers on common ports. Clicking a discovered
+server fills the endpoint field. Connect navigates to /browse.
+"""
 
 import asyncio
 from nicegui import ui
@@ -13,6 +18,7 @@ def register(client: OpcuaClient):
         with ui.column().classes("w-full items-center justify-center min-h-screen gap-4"):
             ui.label("OPGuia").classes("text-3xl font-bold")
 
+            # Manual endpoint input
             with ui.card().classes("w-96 p-4"):
                 endpoint = ui.input("Endpoint", value="opc.tcp://localhost:4840").classes("w-full")
                 status = ui.label("").classes("text-xs")
@@ -32,7 +38,7 @@ def register(client: OpcuaClient):
 
                 ui.button("Connect", on_click=do_connect).classes("w-full")
 
-            # Discovered servers
+            # Auto-discovered servers
             with ui.card().classes("w-96 p-4"):
                 with ui.row().classes("items-center justify-between w-full"):
                     ui.label("Discovered Servers").classes("text-sm font-bold")
@@ -60,6 +66,7 @@ def register(client: OpcuaClient):
 
             asyncio.create_task(run_scan())
 
+            # Show existing connection if already connected
             if client.connected:
                 with ui.row().classes("items-center gap-1"):
                     ui.icon("check_circle", size="xs").classes("text-green-400")

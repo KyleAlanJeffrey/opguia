@@ -1,4 +1,8 @@
-"""Node detail panel — write-focused popup with collapsible details."""
+"""Node detail panel — write-focused popup with collapsible details.
+
+Clicking a variable opens this panel in a dialog. The layout prioritizes
+writing: value + write input at top, full attribute details collapsed below.
+"""
 
 import asyncio
 from nicegui import ui
@@ -6,14 +10,15 @@ from opguia.client import OpcuaClient
 
 
 def create_detail_panel(client: OpcuaClient, on_set_root=None):
-    """Create the detail panel container and return (container, show_details_fn)."""
+    """Create the detail panel. Returns (container, show_details_fn)."""
     container = ui.column().classes("w-full gap-2")
 
-    async def show_details(node_id: str, tree_info: dict | None = None):
-        """Show node popup. tree_info is optional inline data from the tree row."""
+    async def show_details(node_id: str):
+        """Fetch node info and render the panel contents."""
         container.clear()
         with container:
             ui.spinner(size="sm")
+
         try:
             info = await client.get_node_details(node_id)
         except Exception as e:
@@ -24,23 +29,22 @@ def create_detail_panel(client: OpcuaClient, on_set_root=None):
 
         container.clear()
         with container:
-            # Title row
+            # ── Header: name + node class ──
             with ui.row().classes("items-center gap-2 w-full"):
                 ui.label(info["display_name"]).classes("text-lg font-bold")
                 ui.label(info.get("node_class", "")).classes("text-xs text-gray-500")
 
             is_var = info["is_variable"]
-            is_error = False
-            is_complex = False
+            is_complex = info.get("is_complex", False)
 
+            # ── Variable-specific content ──
             if is_var:
                 val = info.get("value", "—")
                 val_str = str(val)
                 is_error = isinstance(val, str) and val.startswith("Error:")
-                is_complex = info.get("data_type") in ("ExtensionObject", "22")
                 can_write = info.get("writable") and not is_error and not is_complex
 
-                # Current value display
+                # Current value + data type
                 with ui.row().classes("items-center gap-2 w-full"):
                     ui.label("Value:").classes("text-xs text-gray-500 shrink-0")
                     if is_error:
@@ -54,7 +58,7 @@ def create_detail_panel(client: OpcuaClient, on_set_root=None):
                     if info.get("data_type"):
                         ui.label(info["data_type"]).classes("text-xs text-gray-500 ml-auto shrink-0")
 
-                # Write section — prominent for writable variables
+                # Write form (only for writable, non-error, non-complex variables)
                 if can_write:
                     write_status = ui.label("").classes("text-xs")
                     with ui.row().classes("items-center gap-2 w-full"):
@@ -70,32 +74,32 @@ def create_detail_panel(client: OpcuaClient, on_set_root=None):
                                 st.text = "OK"
                                 st.classes(add="text-green-400")
                                 await asyncio.sleep(0.5)
-                                await show_details(nid)
+                                await show_details(nid)  # refresh after write
                             except Exception as e:
                                 st.text = str(e)
                                 st.classes(add="text-red-400")
 
                         ui.button("Write", on_click=do_write).props("dense size=sm color=primary")
 
-                # Refresh button for read-only variables
+                # Refresh for read-only variables
                 if not can_write and not is_complex:
                     async def do_refresh(nid=node_id):
                         await show_details(nid)
-                    ui.button("Refresh", icon="refresh", on_click=do_refresh).props(
-                        "flat dense size=sm"
-                    )
+                    ui.button("Refresh", icon="refresh", on_click=do_refresh).props("flat dense size=sm")
 
-            # Set as root for non-variable nodes
+            # ── Folder: set as root ──
             if not is_var and on_set_root:
                 with ui.row().classes("items-center gap-2"):
                     ui.label(f"{info.get('child_count', '?')} children").classes("text-xs text-gray-500")
+
                     async def set_root(nid=node_id, name=info["display_name"]):
                         await on_set_root(nid, name)
+
                     ui.button("Set as tree root", icon="folder_open", on_click=set_root).props(
                         "flat dense size=sm"
                     )
 
-            # Collapsible details section
+            # ── Collapsible details ──
             with ui.expansion("Details").classes("w-full").props("dense"):
                 rows = [
                     ("Node ID", info["node_id"]),
