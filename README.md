@@ -1,5 +1,10 @@
 # OPGuia
 
+[![PyPI version](https://img.shields.io/pypi/v/opguia.svg)](https://pypi.org/project/opguia/)
+[![Python](https://img.shields.io/pypi/pyversions/opguia.svg)](https://pypi.org/project/opguia/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/opguia.svg)](https://pypi.org/project/opguia/)
+
 Dead simple OPC UA browser built with Python.
 
 ## Install
@@ -14,7 +19,7 @@ pip install opguia
 opguia
 ```
 
-Opens a browser at `http://localhost:8080`. Enter an OPC UA endpoint or let it scan for local servers.
+Opens a native desktop window. Enter an OPC UA endpoint or let it scan for local servers.
 
 ## Features
 
@@ -24,6 +29,8 @@ Opens a browser at `http://localhost:8080`. Enter an OPC UA endpoint or let it s
 - Filter nodes by name
 - Click to write writable variables
 - Collapsible detail view for full node attributes
+- Custom struct types resolved to their real names
+- Native desktop window via pywebview
 
 ## Development
 
@@ -34,4 +41,12 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 opguia
+```
+
+## Publishing
+
+```bash
+pip install build twine
+python -m build
+twine upload dist/*
 ```
