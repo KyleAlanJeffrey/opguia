@@ -52,11 +52,16 @@ opguia/
   app.py              # wires pages + runs NiceGUI
   client.py           # OPC UA client wrapper
   scanner.py          # server discovery
+  settings.py         # persistent profiles + preferences
+  native.py           # platform-specific window config
+  _native_window.py   # macOS icon/name (pywebview child)
   utils.py            # type conversion, formatting
+  static/             # favicon.svg, icon.png, icon.ico
   pages/
     connection.py     # connect page
     browse.py         # main browse page
   components/
     tree_view.py      # tree-table rendering
     detail_panel.py   # node detail dialog + write
+    watch_panel.py    # live variable watch panel
 ```

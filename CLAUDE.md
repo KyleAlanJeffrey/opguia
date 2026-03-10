@@ -21,7 +21,10 @@ python main.py
 - `opguia/components/detail_panel.py` — full node attributes + write form (used in dialog)
 - `opguia/components/watch_panel.py` — live-updating watched variable values (bottom panel)
 - `opguia/settings.py` — persistent settings with connection profiles (JSON in OS config dir)
+- `opguia/native.py` — platform-specific native window config (dock icon, app name, taskbar)
+- `opguia/_native_window.py` — pywebview child process wrapper for macOS icon/name (spawn-safe)
 - `opguia/utils.py` — shared constants and helpers (type conversion, timestamp formatting, access level bits)
+- `opguia/static/` — favicon (SVG), icon (PNG for macOS, ICO for Windows)
 
 ## Conventions
 
