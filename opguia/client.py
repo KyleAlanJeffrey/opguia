@@ -432,6 +432,8 @@ class OpcuaClient:
             current = await node.read_data_value()
             vtype = current.Value.VariantType if current.Value else None
             if vtype:
-                await node.write_value(ua.DataValue(ua.Variant(convert_value(value, vtype), vtype)))
+                # If value is already the correct type (e.g. pre-built list), skip conversion
+                converted = convert_value(value, vtype) if isinstance(value, str) else value
+                await node.write_value(ua.DataValue(ua.Variant(converted, vtype)))
             else:
                 await node.write_value(value)

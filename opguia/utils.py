@@ -50,12 +50,8 @@ def format_timestamp(ts) -> str:
     return str(ts)
 
 
-def convert_value(raw: str, vtype: ua.VariantType):
-    """Convert a string input to the correct Python type for writing.
-
-    Used when writing values — the UI gives us a string, and we need
-    to convert it to match the variable's VariantType.
-    """
+def convert_scalar(raw: str, vtype: ua.VariantType):
+    """Convert a single string token to the correct Python type."""
     if vtype in (ua.VariantType.Float, ua.VariantType.Double):
         return float(raw)
     if vtype in (
@@ -65,7 +61,12 @@ def convert_value(raw: str, vtype: ua.VariantType):
     ):
         return int(raw)
     if vtype == ua.VariantType.Boolean:
-        return raw.lower() in ("true", "1", "yes")
+        return raw.strip().lower() in ("true", "1", "yes")
     if vtype == ua.VariantType.String:
         return str(raw)
     return raw
+
+
+def convert_value(raw: str, vtype: ua.VariantType):
+    """Convert a string input to the correct Python type for writing."""
+    return convert_scalar(raw, vtype)
