@@ -13,6 +13,7 @@ from opguia.scanner import scan_servers
 from opguia.storage import Settings
 from opguia.theme import apply_theme
 from opguia.tunnel import SSHTunnel
+from opguia.ui_base import PageContext
 from opguia.utils import DEFAULT_OPC_PORT
 
 
@@ -50,6 +51,7 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
     @ui.page("/")
     async def connection_page():
         apply_theme()
+        ctx = PageContext()
 
         # ── Header ──
         with ui.row().classes("w-full items-center justify-center gap-3 py-6 shrink-0"):
@@ -201,8 +203,8 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                             profile_name.value = name
                                     row.on("click", pick)
 
-                    asyncio.create_task(run_scan())
-                    ui.timer(5.0, run_scan)
+                    ctx.spawn(run_scan())
+                    ctx.timer(5.0, run_scan)
 
                 # Show existing connection if already connected
                 if client.connected:

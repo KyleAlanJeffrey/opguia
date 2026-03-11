@@ -18,6 +18,7 @@ from nicegui import app, ui
 from opguia.client import OpcuaClient
 from opguia.storage import Settings
 from opguia.theme import apply_theme
+from opguia.ui_base import PageContext
 from opguia.pages.browse.tree_view import create_tree_view
 from opguia.pages.browse.detail_panel import create_detail_panel
 from opguia.pages.browse.watch_panel import create_watch_panel
@@ -140,16 +141,12 @@ def register(client: OpcuaClient, settings: Settings, tunnel=None):
                         ui.label("Poll rate").classes("text-sm text-gray-400")
                         poll_options = [0.1, 0.25, 0.5, 1.0, 2.0]
 
-                        _value_task: list[asyncio.Task] = []  # mutable ref for closure
+                        _value_slot: list[asyncio.Task] = []  # slot for replace_task
 
                         def on_poll_change(e):
                             settings.poll_interval = float(e.value)
-                            if _value_task:
-                                _value_task[0].cancel()
-                                _value_task.clear()
                             if client.connected:
-                                t = _spawn(update_values())
-                                _value_task.append(t)
+                                ctx.replace_task(_value_slot, update_values())
 
                         poll_select = ui.toggle(
                             {v: f"{v}s" for v in poll_options},
@@ -372,17 +369,9 @@ def register(client: OpcuaClient, settings: Settings, tunnel=None):
                 except Exception:
                     pass
 
-        # Store references to prevent GC (asyncio only holds weak refs to tasks)
-        _bg_tasks: set[asyncio.Task] = set()
-
-        def _spawn(coro):
-            t = asyncio.create_task(coro)
-            _bg_tasks.add(t)
-            t.add_done_callback(_bg_tasks.discard)
-            return t
-
-        _spawn(update_latency())
-        _value_task.append(_spawn(update_values()))
+        ctx = PageContext()
+        ctx.spawn(update_latency())
+        ctx.replace_task(_value_slot, update_values())
 
         # Pre-create detail dialog (avoids slot context issues on Windows)
         with ui.dialog().classes("w-full max-w-lg") as detail_dlg:
