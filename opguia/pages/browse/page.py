@@ -140,8 +140,16 @@ def register(client: OpcuaClient, settings: Settings, tunnel=None):
                         ui.label("Poll rate").classes("text-sm text-gray-400")
                         poll_options = [0.1, 0.25, 0.5, 1.0, 2.0]
 
+                        _value_task: list[asyncio.Task] = []  # mutable ref for closure
+
                         def on_poll_change(e):
                             settings.poll_interval = float(e.value)
+                            if _value_task:
+                                _value_task[0].cancel()
+                                _value_task.clear()
+                            if client.connected:
+                                t = _spawn(update_values())
+                                _value_task.append(t)
 
                         poll_select = ui.toggle(
                             {v: f"{v}s" for v in poll_options},
@@ -364,8 +372,17 @@ def register(client: OpcuaClient, settings: Settings, tunnel=None):
                 except Exception:
                     pass
 
-        asyncio.create_task(update_latency())
-        asyncio.create_task(update_values())
+        # Store references to prevent GC (asyncio only holds weak refs to tasks)
+        _bg_tasks: set[asyncio.Task] = set()
+
+        def _spawn(coro):
+            t = asyncio.create_task(coro)
+            _bg_tasks.add(t)
+            t.add_done_callback(_bg_tasks.discard)
+            return t
+
+        _spawn(update_latency())
+        _value_task.append(_spawn(update_values()))
 
         # Pre-create detail dialog (avoids slot context issues on Windows)
         with ui.dialog().classes("w-full max-w-lg") as detail_dlg:
