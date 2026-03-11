@@ -52,7 +52,7 @@ opguia/
   app.py              # wires pages + runs NiceGUI
   client.py           # OPC UA client wrapper
   scanner.py          # server discovery
-  settings.py         # persistent profiles + preferences
+  storage.py          # persistent profiles, preferences, OS directory helpers
   native.py           # platform-specific window config
   _native_window.py   # macOS icon/name (pywebview child)
   utils.py            # type conversion, formatting

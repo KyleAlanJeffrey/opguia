@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from nicegui import ui
 from opguia.client import OpcuaClient
 from opguia.scanner import scan_servers
-from opguia.settings import Settings
+from opguia.storage import Settings
 from opguia.tunnel import SSHTunnel
 from opguia.utils import DEFAULT_OPC_PORT
 

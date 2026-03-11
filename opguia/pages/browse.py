@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 from nicegui import app, ui
 from opguia.client import OpcuaClient
-from opguia.settings import Settings
+from opguia.storage import Settings
 from opguia.components.tree_view import create_tree_view
 from opguia.components.detail_panel import create_detail_panel
 from opguia.components.watch_panel import create_watch_panel

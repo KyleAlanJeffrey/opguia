@@ -53,10 +53,4 @@ opguia
 
 ## Releasing
 
-```bash
-./release.sh patch   # 1.1.0 → 1.1.1
-./release.sh minor   # 1.1.0 → 1.2.0
-./release.sh major   # 1.1.0 → 2.0.0
-```
-
-Releases also trigger via GitHub Actions when a commit matching `vX.Y.Z` is pushed to `main`.
+Releases trigger via GitHub Actions when a commit matching `vX.Y.Z` is pushed to `main`.

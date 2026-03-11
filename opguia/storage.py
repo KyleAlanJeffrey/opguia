@@ -1,34 +1,41 @@
-"""Persistent settings — connection profiles, preferences.
+"""Persistent storage — app directories, settings, connection profiles.
 
-Settings are stored as JSON in an OS-appropriate config directory:
-  macOS:   ~/Library/Application Support/opguia/settings.json
-  Linux:   ~/.config/opguia/settings.json
-  Windows: %APPDATA%/opguia/settings.json
+Uses platformdirs for OS-appropriate directory paths:
+  Config:  ~/Library/Application Support/opguia  (macOS)
+  Data:    ~/Library/Application Support/opguia  (macOS)
+  Cache:   ~/Library/Caches/opguia               (macOS)
+  Log:     ~/Library/Logs/opguia                  (macOS)
+  (Linux/Windows: XDG / AppData equivalents)
 
-Each connection profile stores:
-  - name:         display name for the profile
-  - url:          OPC UA endpoint URL
-  - allow_writes: whether writes are enabled for this connection
-  - watched:      list of {name, node_id} for the watch window
-  - tree_expanded: list of node_id strings for expanded tree nodes
+Settings are stored as JSON in the config directory.
 """
 
 import json
-import sys
 from pathlib import Path
+from platformdirs import user_config_dir, user_data_dir, user_cache_dir, user_log_dir
 
 _APP_NAME = "opguia"
 
+# ── App directories ──
 
-def _config_dir() -> Path:
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / _APP_NAME
-    elif sys.platform == "win32":
-        base = Path.home() / "AppData" / "Roaming"
-        return base / _APP_NAME
-    else:
-        return Path.home() / ".config" / _APP_NAME
+def config_dir() -> Path:
+    """OS-appropriate config directory (settings, profiles)."""
+    return Path(user_config_dir(_APP_NAME, ensure_exists=True))
 
+def data_dir() -> Path:
+    """OS-appropriate data directory (exports, saved state)."""
+    return Path(user_data_dir(_APP_NAME, ensure_exists=True))
+
+def cache_dir() -> Path:
+    """OS-appropriate cache directory (temporary files)."""
+    return Path(user_cache_dir(_APP_NAME, ensure_exists=True))
+
+def log_dir() -> Path:
+    """OS-appropriate log directory."""
+    return Path(user_log_dir(_APP_NAME, ensure_exists=True))
+
+
+# ── Profile schema ──
 
 def _new_profile(name: str, url: str) -> dict:
     return {
@@ -36,9 +43,9 @@ def _new_profile(name: str, url: str) -> dict:
         "url": url,
         "allow_writes": False,
         "watched": [],
-        "tree_root": None,      # node_id string or None (Objects)
-        "tree_root_path": [],   # breadcrumb path list
-        "tree_expanded": [],    # list of expanded node_id strings
+        "tree_root": None,
+        "tree_root_path": [],
+        "tree_expanded": [],
         "tunnel_enabled": False,
         "tunnel_ssh_host": "",
         "tunnel_ssh_user": "",
@@ -46,13 +53,15 @@ def _new_profile(name: str, url: str) -> dict:
     }
 
 
+# ── Settings ──
+
 class Settings:
     """Read/write persistent JSON settings with connection profiles."""
 
     def __init__(self):
-        self._path = _config_dir() / "settings.json"
+        self._path = config_dir() / "settings.json"
         self._data: dict = {}
-        self._active_url: str | None = None  # set when connected
+        self._active_url: str | None = None
         self._load()
 
     def _load(self):
@@ -61,7 +70,6 @@ class Settings:
                 data = json.loads(self._path.read_text())
             except (json.JSONDecodeError, OSError):
                 data = {}
-            # Wipe old format — no migration, just start fresh
             if "profiles" in data and isinstance(data["profiles"], list):
                 self._data = data
             else:
@@ -78,10 +86,9 @@ class Settings:
                 return p
         return None
 
-    # ── Active profile (set by browse page on connect) ──
+    # ── Active profile ──
 
     def set_active(self, url: str):
-        """Set which profile is active based on the connected endpoint."""
         self._active_url = url
 
     @property
@@ -99,7 +106,6 @@ class Settings:
     def add_profile(self, name: str, url: str) -> dict:
         existing = self._find_profile(url)
         if existing:
-            # Only update name if explicitly provided (don't overwrite user edits)
             if name and name != url:
                 existing["name"] = name
             self._save()
@@ -120,7 +126,6 @@ class Settings:
             self._save()
 
     def ensure_profile(self, url: str, server_name: str = ""):
-        """Ensure a profile exists for the given URL (creates if missing)."""
         if not self._find_profile(url):
             name = server_name or url
             self.add_profile(name, url)
@@ -139,7 +144,7 @@ class Settings:
             p["allow_writes"] = value
             self._save()
 
-    # ── Tree root (per-profile) ──
+    # ── Tree root ──
 
     @property
     def tree_root(self) -> str | None:
@@ -165,7 +170,7 @@ class Settings:
             p["tree_root_path"] = value
             self._save()
 
-    # ── Tree expanded state (per-profile) ──
+    # ── Tree expanded state ──
 
     @property
     def tree_expanded(self) -> list[str]:
@@ -197,7 +202,7 @@ class Settings:
             expanded.remove(node_id)
             self._save()
 
-    # ── Watched variables (per-profile) ──
+    # ── Watched variables ──
 
     @property
     def watched(self) -> list[dict]:
@@ -223,7 +228,7 @@ class Settings:
     def is_watched(self, node_id: str) -> bool:
         return any(item["node_id"] == node_id for item in self.watched)
 
-    # ── Backward compat aliases ──
+    # ── Aliases ──
 
     @property
     def favorites(self) -> list[dict]:

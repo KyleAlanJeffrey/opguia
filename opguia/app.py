@@ -15,7 +15,7 @@ def run():
 
     from nicegui import app, ui
     from opguia.client import OpcuaClient
-    from opguia.settings import Settings
+    from opguia.storage import Settings
     from opguia.tunnel import SSHTunnel
     from opguia.pages import connection, browse
     from opguia.native import configure_native

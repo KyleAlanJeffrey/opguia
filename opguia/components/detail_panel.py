@@ -8,7 +8,7 @@ import asyncio
 import pyperclip
 from nicegui import ui
 from opguia.client import OpcuaClient
-from opguia.settings import Settings
+from opguia.storage import Settings
 
 # Type hints and validation for write inputs
 _TYPE_HINTS = {

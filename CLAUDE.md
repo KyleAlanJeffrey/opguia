@@ -23,7 +23,7 @@ python main.py
 - `opguia/components/watch_panel.py` — live-updating watched variable values (bottom panel)
 - `opguia/cli.py` — headless CLI for querying, reading, writing nodes without the GUI
 - `opguia/tunnel.py` — SSH port-forwarding tunnel manager (ssh -L subprocess)
-- `opguia/settings.py` — persistent settings with connection profiles (JSON in OS config dir)
+- `opguia/storage.py` — persistent settings and OS directory helpers (config, data, cache, log) via platformdirs
 - `opguia/native.py` — platform-specific native window config (dock icon, app name, taskbar)
 - `opguia/_native_window.py` — pywebview child process wrapper for macOS icon/name (spawn-safe)
 - `opguia/utils.py` — shared constants and helpers (type conversion, timestamp formatting, access level bits)
@@ -36,25 +36,14 @@ python main.py
 - Components are factory functions returning UI containers + callback functions
 - NiceGUI dark mode is always enabled
 - Standard OPC UA port is 4840; scanner also checks 4841-4843, 48400-48401, 48010, 53530
-- Settings persist via `Settings` class in `settings.py` — passed to pages from `app.py`
+- Settings persist via `Settings` class in `storage.py` — passed to pages from `app.py`
 
 ## Releasing
 
 Version is in `opguia/__init__.py` (`__version__`), read by hatch from `pyproject.toml`.
 
-Use the release script:
-
-```bash
-./release.sh patch   # 1.1.0 → 1.1.1
-./release.sh minor   # 1.1.0 → 1.2.0
-./release.sh major   # 1.1.0 → 2.0.0
-./release.sh 1.2.3   # explicit version
-```
-
-The script auto-bumps the version, builds, generates release notes from git log, commits, tags (annotated with notes), and pushes.
-
-Releases also trigger automatically via GitHub Actions when a commit is pushed to `main` with:
-- Commit title matching `vX.Y.Z` (e.g. the version commit from `release.sh`)
+Releases trigger automatically via GitHub Actions when a commit is pushed to `main` with:
+- Commit title matching `vX.Y.Z`
 - Commit message containing `#release`
 
 The `release.yml` workflow auto-generates release notes, creates a GitHub release, and publishes to PyPI.
