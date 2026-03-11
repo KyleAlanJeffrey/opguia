@@ -4,6 +4,7 @@ from pathlib import Path
 from nicegui import app, ui
 from opguia.client import OpcuaClient
 from opguia.settings import Settings
+from opguia.tunnel import SSHTunnel
 from opguia.pages import connection, browse
 from opguia.native import configure_native
 
@@ -14,10 +15,11 @@ _FAVICON = (_STATIC / "favicon.svg").read_text()
 def run():
     client = OpcuaClient()
     settings = Settings()
+    tunnel = SSHTunnel()
     app.add_static_files("/static", _STATIC)
     configure_native()
-    connection.register(client, settings)
-    browse.register(client, settings)
+    connection.register(client, settings, tunnel)
+    browse.register(client, settings, tunnel)
     ui.run(
         title="OPGuia — OPC UA Browser",
         favicon=_FAVICON,

@@ -21,6 +21,7 @@ python main.py
 - `opguia/components/tree_view.py` — tree rendering with typed icons, inline values, status dots
 - `opguia/components/detail_panel.py` — full node attributes + write form (used in dialog)
 - `opguia/components/watch_panel.py` — live-updating watched variable values (bottom panel)
+- `opguia/tunnel.py` — SSH port-forwarding tunnel manager (ssh -L subprocess)
 - `opguia/settings.py` — persistent settings with connection profiles (JSON in OS config dir)
 - `opguia/native.py` — platform-specific native window config (dock icon, app name, taskbar)
 - `opguia/_native_window.py` — pywebview child process wrapper for macOS icon/name (spawn-safe)
@@ -30,7 +31,7 @@ python main.py
 ## Conventions
 
 - All OPC UA communication goes through `OpcuaClient` in `client.py` — UI code never touches asyncua directly
-- Pages register themselves via `register(client, settings)` called from `app.py`
+- Pages register themselves via `register(client, settings, tunnel)` called from `app.py`
 - Components are factory functions returning UI containers + callback functions
 - NiceGUI dark mode is always enabled
 - Standard OPC UA port is 4840; scanner also checks 4841-4843, 48400-48401, 48010, 53530

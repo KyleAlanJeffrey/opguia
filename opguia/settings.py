@@ -39,6 +39,10 @@ def _new_profile(name: str, url: str) -> dict:
         "tree_root": None,      # node_id string or None (Objects)
         "tree_root_path": [],   # breadcrumb path list
         "tree_expanded": [],    # list of expanded node_id strings
+        "tunnel_enabled": False,
+        "tunnel_ssh_host": "",
+        "tunnel_ssh_user": "",
+        "tunnel_ssh_port": 22,
     }
 
 
@@ -95,7 +99,9 @@ class Settings:
     def add_profile(self, name: str, url: str) -> dict:
         existing = self._find_profile(url)
         if existing:
-            existing["name"] = name
+            # Only update name if explicitly provided (don't overwrite user edits)
+            if name and name != url:
+                existing["name"] = name
             self._save()
             return existing
         p = _new_profile(name, url)

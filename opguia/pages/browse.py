@@ -23,7 +23,7 @@ from opguia.components.detail_panel import create_detail_panel
 from opguia.components.watch_panel import create_watch_panel
 
 
-def register(client: OpcuaClient, settings: Settings):
+def register(client: OpcuaClient, settings: Settings, tunnel=None):
     @ui.page("/browse")
     async def browse_page():
         ui.dark_mode().enable()
@@ -31,9 +31,12 @@ def register(client: OpcuaClient, settings: Settings):
             ui.navigate.to("/")
             return
 
-        # Ensure profile exists and is active
-        settings.ensure_profile(client.endpoint, client.server_name)
-        settings.set_active(client.endpoint)
+        # If no active profile is set (e.g. direct navigation), try to match
+        # by endpoint URL. When tunneling, the active profile was already set
+        # by the connection page using the original (non-tunnel) URL.
+        if not settings.active_profile:
+            settings.ensure_profile(client.endpoint, client.server_name)
+            settings.set_active(client.endpoint)
 
         # Override NiceGUI defaults — full-height flex column, no padding
         ui.query("body").style("margin:0; overflow:hidden")
@@ -166,6 +169,8 @@ def register(client: OpcuaClient, settings: Settings):
 
                 async def do_disconnect():
                     await client.disconnect()
+                    if tunnel:
+                        await tunnel.stop()
                     ui.navigate.to("/")
 
                 ui.button(
@@ -279,6 +284,8 @@ def register(client: OpcuaClient, settings: Settings):
                 return
             _disconnecting["v"] = True
             await client.disconnect()
+            if tunnel:
+                await tunnel.stop()
             ui.notify("Connection lost", type="warning")
             await asyncio.sleep(1)
             ui.navigate.to("/")
