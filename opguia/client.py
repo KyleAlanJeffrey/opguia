@@ -120,26 +120,6 @@ class OpcuaClient:
 
     # ── Path resolution ──
 
-    async def resolve_path(self, path: list[str]) -> str | None:
-        """Walk a display-name path from Objects and return the final NodeId string."""
-        if not self.client:
-            return None
-        node = self.client.nodes.objects
-        for segment in path:
-            children = await node.get_children()
-            found = None
-            for child in children:
-                name = await child.read_display_name()
-                if name and name.Text == segment:
-                    found = child
-                    break
-            if found is None:
-                return None
-            node = found
-        return node.nodeid.to_string()
-
-    # ── Path resolution ──
-
     async def get_node_path(self, node_id: str) -> list[str]:
         """Walk up from a node to the Objects folder, returning display names.
 

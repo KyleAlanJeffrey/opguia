@@ -5,20 +5,21 @@ servers, right has saved profiles with status pings and connect buttons.
 """
 
 import asyncio
+from urllib.parse import urlparse
 from nicegui import ui
 from opguia.client import OpcuaClient
 from opguia.scanner import scan_servers
 from opguia.settings import Settings
 from opguia.tunnel import SSHTunnel
+from opguia.utils import DEFAULT_OPC_PORT
 
 
 async def _ping(url: str, timeout: float = 2.0) -> bool:
     """Quick TCP check to see if an OPC UA endpoint is reachable."""
     try:
-        from urllib.parse import urlparse
         parsed = urlparse(url)
         host = parsed.hostname or "localhost"
-        port = parsed.port or 4840
+        port = parsed.port or DEFAULT_OPC_PORT
         _, writer = await asyncio.wait_for(
             asyncio.open_connection(host, port), timeout=timeout,
         )
@@ -31,70 +32,14 @@ async def _ping(url: str, timeout: float = 2.0) -> bool:
         return False
 
 
-async def _ping_via_ssh(url: str, ssh_host: str, ssh_user: str = "",
-                        ssh_port: int = 22, timeout: float = 10.0) -> bool:
-    """Check if a remote OPC UA endpoint is reachable through an SSH host.
-
-    Opens a transient SSH port forward, checks if the local end accepts
-    connections, then tears it down. This tests the full path: SSH host
-    reachable + remote OPC UA port open.
-    """
-    import random
-    local_port = random.randint(49152, 65000)
-    proc = None
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        remote_host = parsed.hostname or "localhost"
-        remote_port = parsed.port or 4840
-        target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
-
-        # Start a transient SSH tunnel
-        cmd = [
-            "ssh", "-N", target,
-            "-p", str(ssh_port),
-            "-L", f"{local_port}:{remote_host}:{remote_port}",
-            "-o", "ConnectTimeout=5",
-            "-o", "StrictHostKeyChecking=accept-new",
-            "-o", "BatchMode=yes",
-            "-o", "ExitOnForwardFailure=yes",
-        ]
-        print(f"[ssh-ping] {' '.join(cmd)}")
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        # Wait for the local port to become available
-        for i in range(25):  # 25 * 0.2s = 5s
-            if proc.returncode is not None:
-                stderr = ""
-                if proc.stderr:
-                    data = await proc.stderr.read()
-                    stderr = data.decode(errors="replace").strip()
-                print(f"[ssh-ping] SSH exited with code {proc.returncode}: {stderr}")
-                return False
-            try:
-                _, writer = await asyncio.open_connection("localhost", local_port)
-                writer.close()
-                await writer.wait_closed()
-                print(f"[ssh-ping] {target} → {remote_host}:{remote_port} → online (took {i*0.2:.1f}s)")
-                return True
-            except (ConnectionRefusedError, OSError):
-                await asyncio.sleep(0.2)
-        print(f"[ssh-ping] {target} → timed out after 5s")
-        return False
-    except Exception as e:
-        print(f"[ssh-ping] exception: {e}")
-        return False
-    finally:
-        if proc and proc.returncode is None:
-            proc.terminate()
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=2)
-            except asyncio.TimeoutError:
-                proc.kill()
+def _ssh_preview(opc_url: str, ssh_host: str, ssh_user: str = "", ssh_port: str = "22") -> str:
+    """Generate SSH command preview string for display."""
+    parsed = urlparse(opc_url)
+    rh = parsed.hostname or "localhost"
+    rp = parsed.port or DEFAULT_OPC_PORT
+    target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
+    port_flag = f" -p {ssh_port}" if ssh_port != "22" else ""
+    return f"ssh {target} -L <port>:{rh}:{rp}{port_flag}"
 
 
 def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
@@ -160,15 +105,11 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                     tunnel_preview.style("display:none")
                                     return
                                 tunnel_preview.style(replace="display:block")
-                                from urllib.parse import urlparse
-                                parsed = urlparse(endpoint.value)
-                                rh = parsed.hostname or "localhost"
-                                rp = parsed.port or 4840
-                                user = tunnel_user.value.strip()
-                                target = f"{user}@{tunnel_host.value.strip()}" if user else tunnel_host.value.strip()
-                                sp = tunnel_port.value.strip() if tunnel_port.value else "22"
-                                port_flag = f" -p {sp}" if sp != "22" else ""
-                                tunnel_preview.text = f"ssh {target} -L <port>:{rh}:{rp}{port_flag}"
+                                tunnel_preview.text = _ssh_preview(
+                                    endpoint.value, tunnel_host.value.strip(),
+                                    tunnel_user.value.strip(),
+                                    (tunnel_port.value or "").strip() or "22",
+                                )
 
                             for _inp in (tunnel_toggle, tunnel_host, tunnel_user, tunnel_port, endpoint):
                                 _inp.on("update:model-value", lambda: _update_preview())
@@ -356,15 +297,11 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                 ed_preview.style("display:none")
                                 return
                             ed_preview.style(replace="display:block")
-                            from urllib.parse import urlparse
-                            parsed = urlparse(ed_url.value)
-                            rh = parsed.hostname or "localhost"
-                            rp = parsed.port or 4840
-                            user = ed_ssh_user.value.strip()
-                            target = f"{user}@{ed_ssh_host.value.strip()}" if user else ed_ssh_host.value.strip()
-                            sp = ed_ssh_port.value.strip() if ed_ssh_port.value else "22"
-                            port_flag = f" -p {sp}" if sp != "22" else ""
-                            ed_preview.text = f"ssh {target} -L <port>:{rh}:{rp}{port_flag}"
+                            ed_preview.text = _ssh_preview(
+                                ed_url.value, ed_ssh_host.value.strip(),
+                                ed_ssh_user.value.strip(),
+                                (ed_ssh_port.value or "").strip() or "22",
+                            )
 
                         for _inp in (ed_tunnel, ed_ssh_host, ed_ssh_user, ed_ssh_port, ed_url):
                             _inp.on("update:model-value", lambda: _update_ed_preview())
@@ -473,7 +410,7 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                         interval = 30 if use_ssh else 10
                         while True:
                             if use_ssh:
-                                reachable = await _ping_via_ssh(
+                                reachable = await SSHTunnel.ping(
                                     url,
                                     ssh_host=p["tunnel_ssh_host"],
                                     ssh_user=p.get("tunnel_ssh_user", ""),

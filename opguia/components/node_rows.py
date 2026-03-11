@@ -164,7 +164,6 @@ def _render_variable(client, node, indent, has_ch, depth, on_select_node, value_
                 ex["v"] = False
                 ar.classes(remove="rotate-90")
                 # Remove child value labels from tracking
-                _remove_child_labels(ct, value_labels)
                 ct.clear()
 
         row.tooltip("Double-click for details")
@@ -242,10 +241,3 @@ async def _load(client, container, node_id, depth, on_select_node, value_labels)
             _render_node(client, node, depth, on_select_node, value_labels)
 
 
-def _remove_child_labels(container, value_labels):
-    """Remove value labels that belong to children being collapsed."""
-    # We can't easily track which labels are inside, so just scan
-    to_remove = [nid for nid, lbl in value_labels.items()
-                 if hasattr(lbl, "parent_slot") and lbl.parent_slot is not None]
-    # Simple approach: leave stale entries — they'll fail silently on poll
-    pass

@@ -7,6 +7,10 @@ UI components (display formatting).
 from asyncua import ua
 from datetime import datetime
 
+# Standard OPC UA port and ephemeral port range for tunnels
+DEFAULT_OPC_PORT = 4840
+EPHEMERAL_PORT_RANGE = (49152, 65000)
+
 # Human-readable names for OPC UA node classes
 NODE_CLASS_NAMES = {
     ua.NodeClass.Object: "Object",

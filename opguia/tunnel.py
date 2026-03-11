@@ -8,10 +8,12 @@ import asyncio
 import random
 from urllib.parse import urlparse
 
+from opguia.utils import DEFAULT_OPC_PORT, EPHEMERAL_PORT_RANGE
+
 
 def _find_free_port() -> int:
     """Pick a random high port that's likely free."""
-    return random.randint(49152, 65000)
+    return random.randint(*EPHEMERAL_PORT_RANGE)
 
 
 class SSHTunnel:
@@ -42,7 +44,7 @@ class SSHTunnel:
 
         parsed = urlparse(opc_url)
         remote_host = parsed.hostname or "localhost"
-        remote_port = parsed.port or 4840
+        remote_port = parsed.port or DEFAULT_OPC_PORT
 
         self.local_port = _find_free_port()
 
@@ -106,3 +108,62 @@ class SSHTunnel:
                 self._proc.kill()
         self._proc = None
         self.local_port = None
+
+    @staticmethod
+    async def ping(opc_url: str, ssh_host: str, ssh_user: str = "",
+                   ssh_port: int = 22) -> bool:
+        """Transient tunnel to check if a remote OPC UA endpoint is reachable.
+
+        Opens a temporary SSH port forward, checks the local end, tears it down.
+        """
+        local_port = _find_free_port()
+        parsed = urlparse(opc_url)
+        remote_host = parsed.hostname or "localhost"
+        remote_port = parsed.port or DEFAULT_OPC_PORT
+        target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
+
+        cmd = [
+            "ssh", "-N", target,
+            "-p", str(ssh_port),
+            "-L", f"{local_port}:{remote_host}:{remote_port}",
+            "-o", "ConnectTimeout=5",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "BatchMode=yes",
+            "-o", "ExitOnForwardFailure=yes",
+        ]
+        print(f"[ssh-ping] {' '.join(cmd)}")
+        proc = None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            for i in range(25):  # 25 * 0.2s = 5s
+                if proc.returncode is not None:
+                    stderr = ""
+                    if proc.stderr:
+                        data = await proc.stderr.read()
+                        stderr = data.decode(errors="replace").strip()
+                    print(f"[ssh-ping] exited {proc.returncode}: {stderr}")
+                    return False
+                try:
+                    _, writer = await asyncio.open_connection("localhost", local_port)
+                    writer.close()
+                    await writer.wait_closed()
+                    print(f"[ssh-ping] {target} → {remote_host}:{remote_port} → online ({i*0.2:.1f}s)")
+                    return True
+                except (ConnectionRefusedError, OSError):
+                    await asyncio.sleep(0.2)
+            print(f"[ssh-ping] {target} → timed out")
+            return False
+        except Exception as e:
+            print(f"[ssh-ping] exception: {e}")
+            return False
+        finally:
+            if proc and proc.returncode is None:
+                proc.terminate()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=2)
+                except asyncio.TimeoutError:
+                    proc.kill()
