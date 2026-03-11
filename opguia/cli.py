@@ -25,6 +25,8 @@ import asyncio
 import json
 import sys
 
+from loguru import logger
+
 from opguia.client import OpcuaClient
 from opguia.tunnel import SSHTunnel
 
@@ -71,10 +73,10 @@ async def _run(args):
             connect_url = await tunnel.start(
                 args.endpoint, ssh_host=host, ssh_user=user, ssh_port=port,
             )
-            print(f"Tunnel up: {connect_url}", file=sys.stderr)
+            logger.info("Tunnel up: {}", connect_url)
 
         await client.connect(connect_url, timeout=args.timeout)
-        print(f"Connected to {client.server_name or args.endpoint}", file=sys.stderr)
+        logger.info("Connected to {}", client.server_name or args.endpoint)
 
         if args.command == "browse":
             node_id = args.node_id
@@ -114,7 +116,7 @@ async def _run(args):
             await client.write_value(args.node_id, args.value)
             # Read back to verify
             readback = await client.read_value(args.node_id)
-            print(f"Written. Read-back: {readback}", file=sys.stderr)
+            logger.info("Written. Read-back: {}", readback)
             _print_json(readback)
 
         elif args.command == "info":

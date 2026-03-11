@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "asyncua>=1.0.0",
+    "loguru>=0.7",
     "nicegui>=1.4.0",
     "platformdirs>=3.0",
     "pyperclip>=1.8",

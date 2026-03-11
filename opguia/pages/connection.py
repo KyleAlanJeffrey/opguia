@@ -6,6 +6,7 @@ servers, right has saved profiles with status pings and connect buttons.
 
 import asyncio
 from urllib.parse import urlparse
+from loguru import logger
 from nicegui import ui
 from opguia.client import OpcuaClient
 from opguia.scanner import scan_servers
@@ -25,10 +26,10 @@ async def _ping(url: str, timeout: float = 2.0) -> bool:
         )
         writer.close()
         await writer.wait_closed()
-        print(f"[ping] {host}:{port} → online")
+        logger.debug("ping {}:{} → online", host, port)
         return True
     except Exception as e:
-        print(f"[ping] {url} → failed: {e}")
+        logger.debug("ping {} → failed: {}", url, e)
         return False
 
 

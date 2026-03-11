@@ -8,6 +8,8 @@ import asyncio
 import random
 from urllib.parse import urlparse
 
+from loguru import logger
+
 from opguia.utils import DEFAULT_OPC_PORT, EPHEMERAL_PORT_RANGE
 
 
@@ -61,7 +63,7 @@ class SSHTunnel:
             "-o", "ExitOnForwardFailure=yes",
         ]
 
-        print(f"[tunnel] {' '.join(cmd)}")
+        logger.debug("tunnel: {}", " ".join(cmd))
 
         self._proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -131,7 +133,7 @@ class SSHTunnel:
             "-o", "BatchMode=yes",
             "-o", "ExitOnForwardFailure=yes",
         ]
-        print(f"[ssh-ping] {' '.join(cmd)}")
+        logger.debug("ssh-ping: {}", " ".join(cmd))
         proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -145,20 +147,20 @@ class SSHTunnel:
                     if proc.stderr:
                         data = await proc.stderr.read()
                         stderr = data.decode(errors="replace").strip()
-                    print(f"[ssh-ping] exited {proc.returncode}: {stderr}")
+                    logger.debug("ssh-ping exited {}: {}", proc.returncode, stderr)
                     return False
                 try:
                     _, writer = await asyncio.open_connection("localhost", local_port)
                     writer.close()
                     await writer.wait_closed()
-                    print(f"[ssh-ping] {target} → {remote_host}:{remote_port} → online ({i*0.2:.1f}s)")
+                    logger.debug("ssh-ping {} → {}:{} → online ({:.1f}s)", target, remote_host, remote_port, i * 0.2)
                     return True
                 except (ConnectionRefusedError, OSError):
                     await asyncio.sleep(0.2)
-            print(f"[ssh-ping] {target} → timed out")
+            logger.debug("ssh-ping {} → timed out", target)
             return False
         except Exception as e:
-            print(f"[ssh-ping] exception: {e}")
+            logger.debug("ssh-ping exception: {}", e)
             return False
         finally:
             if proc and proc.returncode is None:
