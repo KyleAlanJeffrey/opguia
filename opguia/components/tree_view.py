@@ -139,7 +139,10 @@ def create_tree_view(client: OpcuaClient, on_select_node, on_root_changed=None,
                 ui.label(f"Error: {e}").classes("text-red-400 text-xs ml-6")
             return
 
-        spinner.delete()
+        try:
+            spinner.delete()
+        except (ValueError, Exception):
+            pass
 
         # Apply name filter
         if fq:
@@ -244,6 +247,7 @@ def create_tree_view(client: OpcuaClient, on_select_node, on_root_changed=None,
                         on_expand_changed(nid, False)
                     ct.clear()
 
+            row.tooltip("Double-click for details")
             row.on("click", lambda nid=nid: toggle(nid))
             row.on("dblclick", lambda nid=nid: on_select_node(nid))
 
@@ -278,6 +282,7 @@ def create_tree_view(client: OpcuaClient, on_select_node, on_root_changed=None,
                 arrow.classes(add="rotate-90")
             ui.icon("folder", size="14px").classes("text-yellow-500")
             ui.label(node["name"]).classes("text-xs font-medium")
+        row.tooltip("Double-click for details")
 
         child_ct = ui.column().classes("w-full gap-0")
 
@@ -305,6 +310,29 @@ def create_tree_view(client: OpcuaClient, on_select_node, on_root_changed=None,
             async def auto_load(ct=child_ct, nid_=nid, d=depth):
                 await _load(ct, nid_, d + 1, fq)
             ui.timer(0, auto_load, once=True)
+
+    async def collapse_all():
+        """Collapse all expanded nodes — just rebuild the tree from scratch."""
+        _expanded.clear()
+        if on_expand_changed:
+            on_expand_changed(None, False)  # signal full clear
+        await rebuild_tree()
+
+    async def expand_all():
+        """Expand all nodes one level deep from the current root."""
+        _value_labels.clear()
+        tree_container.clear()
+        try:
+            children = await client.browse_children(root_state["node_id"])
+        except Exception:
+            await rebuild_tree()
+            return
+        expandable_ids = [c["id"] for c in children if c.get("has_children")]
+        for nid in expandable_ids:
+            _expanded.add(nid)
+            if on_expand_changed:
+                on_expand_changed(nid, True)
+        await rebuild_tree()
 
     async def export_tree() -> dict:
         """Export the full tree recursively as a JSON-serializable dict."""
@@ -349,7 +377,7 @@ def create_tree_view(client: OpcuaClient, on_select_node, on_root_changed=None,
             root_name += " / " + " / ".join(root_state["path"])
         return await _export_node(root_state["node_id"], root_name)
 
-    return tree_container, rebuild_tree, set_root, poll_values, export_tree
+    return tree_container, rebuild_tree, set_root, poll_values, export_tree, collapse_all, expand_all
 
 
 def _make_row(indent: int):

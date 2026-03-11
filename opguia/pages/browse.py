@@ -58,16 +58,16 @@ def register(client: OpcuaClient, settings: Settings):
         # ── Middle: sidebar + main content ──
         with ui.row().classes("w-full no-wrap overflow-hidden").style("flex:1; min-height:0"):
 
-            # Sidebar (fixed width)
+            # Sidebar (fixed width, vertical scroll only)
             with ui.column().classes(
-                "border-r border-gray-700 bg-gray-900/50 gap-0 h-full shrink-0 overflow-y-auto"
-            ).style("width:200px; max-width:200px"):
+                "border-r border-gray-700 bg-gray-900/50 h-full shrink-0 gap-0"
+            ).style("width:280px; min-width:280px; max-width:280px; overflow-y:auto; overflow-x:hidden"):
                 ui.label("Connection").classes(
                     "text-xs text-gray-500 uppercase tracking-wide px-3 pt-3 pb-1"
                 )
                 with ui.row().classes(
                     "items-center gap-2 px-2 py-2 mx-2 bg-white/5 rounded overflow-hidden"
-                ).style("max-width:180px"):
+                ):
                     ui.icon("dns", size="16px").classes("text-blue-400 shrink-0")
                     with ui.column().classes("gap-0 overflow-hidden min-w-0"):
                         ui.label(client.server_name or "OPC UA Server").classes(
@@ -76,6 +76,39 @@ def register(client: OpcuaClient, settings: Settings):
                         ui.label(client.endpoint).classes(
                             "font-mono text-gray-500 truncate"
                         ).style("font-size:10px")
+
+                ui.separator().classes("my-2 mx-2")
+
+                # Tree root
+                ui.label("Tree Root").classes(
+                    "text-xs text-gray-500 uppercase tracking-wide px-3 pt-2 pb-1"
+                )
+                root_ct = ui.column().classes("w-full gap-0 px-2")
+
+                def render_root_section():
+                    root_ct.clear()
+                    path = settings.tree_root_path
+                    with root_ct:
+                        if path:
+                            with ui.row().classes(
+                                "items-center gap-1 w-full bg-white/5 rounded px-2 py-1"
+                            ):
+                                ui.icon("folder", size="12px").classes("text-yellow-500 shrink-0")
+                                ui.label(" / ".join(path)).classes(
+                                    "text-xs truncate flex-grow"
+                                )
+
+                                async def _reset_root():
+                                    await set_root(None)
+                                    render_root_section()
+
+                                ui.button(icon="home", on_click=_reset_root).props(
+                                    "flat dense round size=xs"
+                                ).classes("text-gray-400 shrink-0").tooltip("Reset to Objects")
+                        else:
+                            ui.label("Objects (default)").classes("text-xs text-gray-600 px-1")
+
+                render_root_section()
 
                 ui.separator().classes("my-2 mx-2")
 
@@ -149,6 +182,12 @@ def register(client: OpcuaClient, settings: Settings):
                     search_input = ui.input(placeholder="Filter nodes...").props(
                         "dense borderless"
                     ).classes("flex-grow").style("font-size:12px")
+                    collapse_btn = ui.button(icon="unfold_less", on_click=lambda: collapse_all()).props(
+                        "flat dense round size=sm"
+                    ).classes("text-gray-400").tooltip("Collapse all")
+                    expand_btn = ui.button(icon="unfold_more", on_click=lambda: expand_all()).props(
+                        "flat dense round size=sm"
+                    ).classes("text-gray-400").tooltip("Expand all (1 level)")
                     export_btn = ui.button(icon="download").props(
                         "flat dense round size=sm"
                     ).classes("text-gray-400").tooltip("Export tree as JSON")
@@ -158,15 +197,19 @@ def register(client: OpcuaClient, settings: Settings):
                     settings.tree_root = node_id
                     settings.tree_root_path = path
                     settings.tree_expanded = []
+                    render_root_section()
 
                 def _on_expand_changed(node_id, expanded):
-                    if expanded:
+                    if expanded is False and node_id is None:
+                        # Full clear from collapse_all
+                        settings.tree_expanded = []
+                    elif expanded:
                         settings.add_tree_expanded(node_id)
                     else:
                         settings.remove_tree_expanded(node_id)
 
                 with ui.scroll_area().classes("w-full").style("flex:1; min-height:0"):
-                    tree_container, rebuild_tree, set_root, poll_values, export_tree = create_tree_view(
+                    tree_container, rebuild_tree, set_root, poll_values, export_tree, collapse_all, expand_all = create_tree_view(
                         client, on_select_node=lambda nid: show_detail_dialog(nid),
                         on_root_changed=_on_root_changed,
                         initial_root=settings.tree_root,
