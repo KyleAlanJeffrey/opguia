@@ -5,6 +5,7 @@ servers, right has saved profiles with status pings and connect buttons.
 """
 
 import asyncio
+import socket
 from urllib.parse import urlparse
 from loguru import logger
 from nicegui import ui
@@ -17,22 +18,23 @@ from opguia.ui_base import PageContext
 from opguia.utils import DEFAULT_OPC_PORT
 
 
-async def _ping(url: str, timeout: float = 2.0) -> bool:
-    """Quick TCP check to see if an OPC UA endpoint is reachable."""
+def _ping_sync(url: str, timeout: float = 2.0) -> bool:
+    """Synchronous TCP check (runs in a thread to avoid NiceGUI future conflicts)."""
     try:
         parsed = urlparse(url)
         host = parsed.hostname or "localhost"
         port = parsed.port or DEFAULT_OPC_PORT
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout=timeout,
-        )
-        writer.close()
-        await writer.wait_closed()
-        logger.debug("ping {}:{} → online", host, port)
-        return True
+        with socket.create_connection((host, port), timeout=timeout):
+            logger.debug("ping {}:{} → online", host, port)
+            return True
     except Exception as e:
         logger.debug("ping {} → failed: {}", url, e)
         return False
+
+
+async def _ping(url: str, timeout: float = 2.0) -> bool:
+    """Quick TCP check to see if an OPC UA endpoint is reachable."""
+    return await asyncio.to_thread(_ping_sync, url, timeout)
 
 
 def _ssh_preview(opc_url: str, ssh_host: str, ssh_user: str = "", ssh_port: str = "22") -> str:
@@ -94,6 +96,10 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                 tunnel_port = ui.input("SSH Port", value="22").props(
                                     "dense type=number"
                                 ).style("width:80px")
+                            tunnel_password = ui.input(
+                                "SSH Password", password=True, password_toggle_button=True,
+                            ).props("dense").classes("w-full")
+                            tunnel_password.props('placeholder="Leave empty for key-based auth"')
                             # Live command preview
                             tunnel_preview = ui.label("").classes(
                                 "text-xs font-mono text-gray-500 break-all"
@@ -129,6 +135,7 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                     ssh_host=tunnel_host.value.strip(),
                                     ssh_user=tunnel_user.value.strip(),
                                     ssh_port=int(tunnel_port.value or 22),
+                                    ssh_password=tunnel_password.value or "",
                                 )
                                 status.text = f"Tunnel up → {url}. Connecting..."
                             await client.connect(url)
@@ -141,6 +148,7 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                 prof["tunnel_ssh_host"] = tunnel_host.value.strip()
                                 prof["tunnel_ssh_user"] = tunnel_user.value.strip()
                                 prof["tunnel_ssh_port"] = int(tunnel_port.value or 22)
+                                prof["tunnel_ssh_password"] = tunnel_password.value or ""
                                 settings._save()
                             settings.set_active(endpoint.value)
                             status.text = "Connected"
@@ -219,7 +227,8 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
             with ui.column().classes("gap-0").style("width:400px; overflow-y:auto"):
                 saved_card = ui.card().classes("w-full p-4")
 
-                async def connect_profile(url: str, name: str, btn=None, prof=None):
+                async def _do_connect_profile(url: str, name: str, btn=None, prof=None,
+                                              ssh_password: str = ""):
                     if btn:
                         btn.props("loading")
                     try:
@@ -230,7 +239,10 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                 ssh_host=prof["tunnel_ssh_host"],
                                 ssh_user=prof.get("tunnel_ssh_user", ""),
                                 ssh_port=prof.get("tunnel_ssh_port", 22),
+                                ssh_password=ssh_password,
                             )
+                            prof["tunnel_ssh_password"] = ssh_password
+                            settings._save()
                         await client.connect(connect_url)
                         settings.ensure_profile(url, name)
                         settings.set_active(url)
@@ -241,6 +253,35 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                     finally:
                         if btn:
                             btn.props(remove="loading")
+
+                async def connect_profile(url: str, name: str, btn=None, prof=None):
+                    if prof and prof.get("tunnel_enabled") and prof.get("tunnel_ssh_host"):
+                        # Prompt for SSH password before connecting
+                        with ui.dialog() as dlg, ui.card().classes("p-4").style("min-width:340px"):
+                            ui.label("SSH Password").classes("text-sm font-bold mb-1")
+                            ssh_target = prof.get("tunnel_ssh_user", "")
+                            ssh_target = (ssh_target + "@" if ssh_target else "") + prof["tunnel_ssh_host"]
+                            ui.label(ssh_target).classes("text-xs font-mono text-gray-400 mb-2")
+                            pw_input = ui.input(
+                                "Password", password=True, password_toggle_button=True,
+                                value=prof.get("tunnel_ssh_password", ""),
+                            ).props("dense").classes("w-full")
+                            pw_input.props('placeholder="Leave empty for key-based auth"')
+                            with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                                ui.button("Cancel", on_click=dlg.close).props("flat dense")
+
+                                async def _on_connect():
+                                    dlg.close()
+                                    await _do_connect_profile(
+                                        url, name, btn, prof,
+                                        ssh_password=pw_input.value or "",
+                                    )
+
+                                ui.button("Connect", on_click=_on_connect).props("dense color=primary")
+                            pw_input.on("keydown.enter", _on_connect)
+                        dlg.open()
+                    else:
+                        await _do_connect_profile(url, name, btn, prof)
 
                 def render_saved():
                     saved_card.clear()
@@ -285,6 +326,11 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                             ed_ssh_port = ui.input(
                                 "SSH Port", value=str(prof.get("tunnel_ssh_port", 22))
                             ).props("dense type=number").style("width:80px")
+                        ed_ssh_password = ui.input(
+                            "SSH Password", password=True, password_toggle_button=True,
+                            value=prof.get("tunnel_ssh_password", ""),
+                        ).props("dense").classes("w-full")
+                        ed_ssh_password.props('placeholder="Leave empty for key-based auth"')
 
                         # Live command preview
                         ed_preview = ui.label("").classes(
@@ -320,6 +366,7 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                                 prof["tunnel_ssh_host"] = ed_ssh_host.value.strip()
                                 prof["tunnel_ssh_user"] = ed_ssh_user.value.strip()
                                 prof["tunnel_ssh_port"] = int(ed_ssh_port.value or 22)
+                                prof["tunnel_ssh_password"] = ed_ssh_password.value or ""
                                 settings._save()
                                 dlg.close()
                                 render_saved()
@@ -407,26 +454,38 @@ def register(client: OpcuaClient, settings: Settings, tunnel: SSHTunnel = None):
                     use_ssh = prof.get("tunnel_enabled") and prof.get("tunnel_ssh_host")
                     ping_interval = 30.0 if use_ssh else 10.0
 
+                    _ping_running = False
+
                     async def do_ping(url=prof["url"], d=dot, btn=prof_btn, lbl=status_label, p=prof):
-                        if p.get("tunnel_enabled") and p.get("tunnel_ssh_host"):
-                            reachable = await SSHTunnel.ping(
-                                url,
-                                ssh_host=p["tunnel_ssh_host"],
-                                ssh_user=p.get("tunnel_ssh_user", ""),
-                                ssh_port=p.get("tunnel_ssh_port", 22),
-                            )
-                        else:
-                            reachable = await _ping(url)
-                        if reachable:
-                            d.classes(remove="text-gray-600 text-red-500", add="text-green-500")
-                            lbl.text = "Online"
-                            lbl.classes(remove="text-gray-600 text-red-500", add="text-green-500")
-                            btn.props(remove="disable")
-                        else:
-                            d.classes(remove="text-gray-600 text-green-500", add="text-red-500")
-                            lbl.text = "Unreachable"
-                            lbl.classes(remove="text-gray-600 text-green-500", add="text-red-500")
-                            btn.props("disable")
+                        nonlocal _ping_running
+                        if _ping_running:
+                            return
+                        _ping_running = True
+                        try:
+                            if p.get("tunnel_enabled") and p.get("tunnel_ssh_host"):
+                                reachable = await SSHTunnel.ping(
+                                    url,
+                                    ssh_host=p["tunnel_ssh_host"],
+                                    ssh_user=p.get("tunnel_ssh_user", ""),
+                                    ssh_port=p.get("tunnel_ssh_port", 22),
+                                    ssh_password=p.get("tunnel_ssh_password", ""),
+                                )
+                            else:
+                                reachable = await _ping(url)
+                            if reachable:
+                                d.classes(remove="text-gray-600 text-red-500", add="text-green-500")
+                                lbl.text = "Online"
+                                lbl.classes(remove="text-gray-600 text-red-500", add="text-green-500")
+                                btn.props(remove="disable")
+                            else:
+                                d.classes(remove="text-gray-600 text-green-500", add="text-red-500")
+                                lbl.text = "Unreachable"
+                                lbl.classes(remove="text-gray-600 text-green-500", add="text-red-500")
+                                btn.props("disable")
+                        except Exception:
+                            pass  # UI elements may have been destroyed by render_saved()
+                        finally:
+                            _ping_running = False
 
                     ui.timer(ping_interval, do_ping)
                     ui.timer(0.1, do_ping, once=True)  # immediate first ping
